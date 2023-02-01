@@ -5,7 +5,7 @@ use std::io::Write;
 use crate::config::Config;
 use crate::config::MetaDataFormat;
 use crate::tree2d::{DataSize, Tree2d};
-use image::{DynamicImage, ImageEncoder};
+use image::{DynamicImage, GenericImageView, ImageEncoder};
 
 struct NamedDynamicImage {
     name: String,
@@ -171,8 +171,8 @@ fn pack(
     for named_img in img_collection.named_images.iter() {
         data.push((
             DataSize {
-                width: named_img.img.width() + padding as u32,
-                height: named_img.img.height() + padding as u32,
+                width: named_img.img.width() + padding as u32 * 2,
+                height: named_img.img.height() + padding as u32 * 2,
             },
             named_img,
         ));
@@ -186,16 +186,32 @@ fn pack(
     let mut sprite_data = vec![];
 
     for (named_img, bb) in flattened {
-        let x = bb.x as i64 + padding as i64;
-        let y = bb.y as i64 + padding as i64;
-        image::imageops::replace(&mut img_packed, &named_img.img, x, y);
+        let target_x = bb.x + padding as u32;
+        let target_y = bb.y + padding as u32;
+        let width = named_img.img.width();
+        let height = named_img.img.height();
+
+        // Copy pixels, extrude padding by clamping to edges
+        let start = -(padding as i64);
+        let end_y = height as i64 + padding as i64;
+        let end_x = width as i64 + padding as i64;
+        for y in start..end_y {
+            for x in start..end_x {
+                let cx = x.clamp(0, (width - 1) as i64) as u32;
+                let cy = y.clamp(0, (height - 1) as i64) as u32;
+                let p = named_img.img.get_pixel(cx, cy);
+                let tx = (target_x as i64 + x).clamp(0, (img_packed.width() - 1) as i64) as u32;
+                let ty = (target_y as i64 + y).clamp(0, (img_packed.height() - 1) as i64) as u32;
+                img_packed.put_pixel(tx, ty, p);
+            }
+        }
 
         let sd = SpriteData {
             name: named_img.name.to_owned(),
-            x: x as u32,
-            y: y as u32,
-            width: named_img.img.width(),
-            height: named_img.img.height(),
+            x: target_x as u32,
+            y: target_y as u32,
+            width,
+            height,
         };
         sprite_data.push(sd);
     }
