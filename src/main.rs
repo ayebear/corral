@@ -1,5 +1,3 @@
-#![feature(path_file_prefix)]
-
 use std::{env, error::Error, process};
 
 mod bounding_box;

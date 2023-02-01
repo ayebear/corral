@@ -138,14 +138,12 @@ fn load_all(input_dir: &str) -> Result<ImageCollection, Box<dyn Error>> {
 
     for path in paths {
         let path = path?.path();
-        if let (Some(path_str), Some(fname)) = (path.to_str(), path.file_prefix()) {
+        if let Some(path_str) = path.to_str() {
             match image::io::Reader::open(path_str) {
                 Ok(reader) => match reader.decode() {
                     Ok(img) => {
-                        images.push(NamedDynamicImage {
-                            name: fname.to_string_lossy().to_string(),
-                            img,
-                        });
+                        let name = path_str.split('.').next().unwrap().to_string();
+                        images.push(NamedDynamicImage { name, img });
                     }
                     Err(err) => {
                         eprintln!("Error decoding {path_str}");
